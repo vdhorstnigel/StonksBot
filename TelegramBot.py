@@ -49,13 +49,16 @@ def handle(msg):
         mycursor.execute(sql, val)
         myresult = mycursor.fetchall()
         for row in myresult:
-            print (row[4])
-            bot.sendMessage(chat_id, row[2] + " bought at " + row[3] + ", current price at " + row[5] + ", profit of " + row[6] + "%")
+            bot.sendMessage(chat_id, row[2] + " bought at " + row[3] + ", current price at " + row[5] + ", profit of " + row[6] + "%. Notify at " + str(row[7]) + "%")
        
     elif content_type == 'text' and "/watch" in stock:
         try :
             stock = stock.split()
             STOCK = stock[1].upper()
+            if len(stock) == 3:
+                percentage = 1
+            else:
+                percentage = stock[3]
             r=requests.get('https://finance.yahoo.com/quote/' + stock[1])
             soup=bs4.BeautifulSoup(r.text,"lxml")
             price=soup.find_all('div',{'class':'My(6px) Pos(r) smartphone_Mt(6px)'})[0].find('span').text
@@ -68,13 +71,13 @@ def handle(msg):
             myresult = mycursor.fetchall()
             row_count = mycursor.rowcount
             if row_count == 0:
-                sql = "INSERT INTO Stocks (Id, Stock, Price, Profit , vPrice , vProfit) VALUES (%s, %s, %s, %s, %s ,%s)"
-                val = (chat_id, STOCK, stock[2], profit, stock[2], profit)
+                sql = "INSERT INTO Stocks (Id, Stock, Price, Profit , vPrice , vProfit, Percentage) VALUES (%s, %s, %s, %s, %s ,%s, %s)"
+                val = (chat_id, STOCK, stock[2], profit, stock[2], profit, percentage)
                 mycursor.execute(sql, val)
                 mydb.commit()
                 bot.sendMessage(chat_id, "Added to watchlist, bought at " + stock[2])  
             else:
-                bot.sendMessage(chat_id, "Already in watchlist, bought at " + myresult[2] + ", current price at " + myresult[5] + ", profit of " + myresult[6] + "%")
+                bot.sendMessage(chat_id, "Already in watchlist, bought at " + myresult[2] + ", current price at " + myresult[5] + ", profit of " + myresult[6] + "%. Notify at " + myresult[7] + "%")
         except IndexError:
             bot.sendMessage(chat_id, "Could not find " + stock[1])
 
@@ -269,11 +272,12 @@ def check():
             profit = "%.2f" % profit
             iprofit = float(row[4])
             vprofit = float(row[6])
+            percentage = int(row[7])
             if (((vprofit > 0) and (iprofit < 0)) or ((vprofit < 0) and (iprofit > 0))):
                 cprofit = vprofit + iprofit
             else:
                 cprofit = vprofit - iprofit
-            if cprofit >= 1:
+            if cprofit >= percentage:
                 bot.sendMessage(row[1], row[2] + " bought at " + row[3] + ", current price at " + row[5] + ", original profit of " + str(iprofit) + "%, current profit of " + str(vprofit) + "%, gain of " +  str("%.2f" % cprofit) + "%")
                 sql = ("UPDATE Stocks SET Profit = %s WHERE Id = %s AND Stock = %s")
                 val = (vprofit, row[1], row[2])
@@ -283,7 +287,7 @@ def check():
                 val2 = (str(price), row[1], row[2])
                 mycursor.execute(sql, val2)
                 mydb.commit()
-            elif cprofit <= -1:
+            elif cprofit <= -percentage:
                 bot.sendMessage(row[1], row[2] + " bought at " + row[3] + ", current price at " + row[5] + ", original profit of " + str(iprofit) + "%, current profit of " + str(vprofit) + "%, loss of " +  str("%.2f" % cprofit) + "%")
                 sql = ("UPDATE Stocks SET Profit = %s WHERE Id = %s AND Stock = %s")
                 val = (vprofit, row[1], row[2])
